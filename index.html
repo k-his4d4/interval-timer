@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Timer" />
+  <title>Interval Timer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111;
+      --border: #1e1e1e;
+      --border-dim: #2a2a2a;
+      --text: #e5e5e5;
+      --muted: #555;
+      --muted-light: #999;
+      --work: #f97316;
+      --rest: #22d3ee;
+      --font: 'DM Mono', 'Courier New', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 36px; animation: fadeIn 0.5s ease; }
+    .header-label { font-size: 10px; letter-spacing: 0.3em; color: var(--muted); margin-bottom: 4px; }
+    .round-label { font-size: 12px; letter-spacing: 0.2em; color: #444; }
+
+    /* ── Ring ── */
+    .ring-wrap {
+      position: relative;
+      width: 280px; height: 280px;
+      margin-bottom: 36px;
+    }
+    .ring-wrap svg { transform: rotate(-90deg); }
+
+    .ring-inner {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      border-radius: 50%;
+      transition: background 0.4s ease;
+    }
+    .phase-label {
+      font-size: 10px; letter-spacing: 0.3em;
+      margin-bottom: 6px;
+      transition: color 0.4s ease;
+    }
+    .time-display {
+      font-size: 64px; font-weight: 300;
+      line-height: 1; letter-spacing: -2px;
+      transition: color 0.2s ease;
+    }
+    .get-ready {
+      font-size: 10px; letter-spacing: 0.2em;
+      margin-top: 6px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .get-ready.visible { opacity: 1; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .pulsing { animation: pulse 0.7s ease infinite; }
+
+    /* ── Buttons ── */
+    .controls { display: flex; gap: 12px; margin-bottom: 36px; }
+    .btn {
+      border: none; outline: none; cursor: pointer;
+      font-family: var(--font);
+      font-size: 12px; letter-spacing: 0.2em;
+      border-radius: 4px;
+      padding: 14px 36px;
+      transition: opacity 0.2s, color 0.2s, border-color 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-primary {
+      background: var(--work); color: var(--bg);
+    }
+    .btn-primary.rest-phase { background: var(--rest); }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-dim);
+      color: var(--muted); padding: 14px 20px;
+    }
+    .btn-outline:hover { color: var(--muted-light); border-color: var(--muted); }
+    .btn-pause {
+      background: transparent;
+      padding: 14px 36px;
+      border-width: 1px; border-style: solid;
+    }
+
+    /* ── Settings panel ── */
+    .settings {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px 28px;
+      width: 100%; max-width: 340px;
+    }
+    .settings-header {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 16px;
+    }
+    .settings-title { font-size: 10px; letter-spacing: 0.2em; color: var(--muted); }
+    .btn-edit {
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--border-dim);
+      padding: 4px 12px; border-radius: 3px;
+      font-size: 10px; letter-spacing: 0.15em;
+      font-family: var(--font); cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .intervals-display { display: flex; gap: 24px; align-items: center; }
+    .interval-item .lbl { font-size: 10px; color: var(--muted); margin-bottom: 2px; }
+    .interval-item .val { font-size: 28px; font-weight: 300; }
+    .interval-item .val span { font-size: 11px; color: var(--muted); margin-left: 2px; }
+    .divider { width: 1px; background: var(--border); align-self: stretch; }
+
+    /* Edit mode */
+    .edit-row { margin-bottom: 16px; }
+    .edit-lbl { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+    .edit-controls { display: flex; align-items: center; gap: 8px; }
+    .btn-step {
+      background: #1a1a1a; color: #aaa;
+      width: 36px; height: 36px; border-radius: 3px;
+      font-size: 18px; border: none; cursor: pointer;
+      font-family: var(--font);
+      display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+      flex-shrink: 0;
+    }
+    .input-val {
+      background: #1a1a1a;
+      border-radius: 3px;
+      width: 80px; height: 36px;
+      text-align: center;
+      font-size: 22px; font-family: var(--font); font-weight: 300;
+      border-width: 1px; border-style: solid;
+      -moz-appearance: textfield;
+    }
+    .input-val::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+    .edit-actions { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-save {
+      flex: 1; background: var(--text); color: var(--bg);
+      border: none; padding: 10px; border-radius: 3px;
+      font-size: 11px; letter-spacing: 0.15em; font-family: var(--font);
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .btn-cancel {
+      flex: 1; background: transparent; color: var(--muted);
+      border: 1px solid var(--border-dim);
+      padding: 10px; border-radius: 3px;
+      font-size: 11px; letter-spacing: 0.15em; font-family: var(--font);
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+
+    .footer-note {
+      margin-top: 24px;
+      font-size: 10px; color: #2a2a2a;
+      letter-spacing: 0.12em; text-align: center;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.3s ease; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-label">INTERVAL TIMER</div>
+  <div class="round-label" id="roundLabel">ROUND 01</div>
+</div>
+
+<!-- Ring -->
+<div class="ring-wrap">
+  <svg width="280" height="280" viewBox="0 0 280 280">
+    <circle cx="140" cy="140" r="120" fill="none" stroke="#1a1a1a" stroke-width="8"/>
+    <circle id="progressRing" cx="140" cy="140" r="120"
+      fill="none" stroke-width="8" stroke-linecap="round"
+      stroke-dasharray="753.98"
+      stroke-dashoffset="0"
+      style="transition: stroke-dashoffset 0.95s linear, stroke 0.4s ease;"/>
+  </svg>
+  <div class="ring-inner" id="ringInner">
+    <div class="phase-label" id="phaseLabel">▶ WORK</div>
+    <div class="time-display" id="timeDisplay">00:30</div>
+    <div class="get-ready" id="getReady">GET READY</div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="btn btn-primary" id="startBtn" onclick="toggleStart()">START</button>
+  <button class="btn btn-outline" onclick="resetTimer()">RESET</button>
+</div>
+
+<!-- Settings -->
+<div class="settings">
+  <div id="settingsView">
+    <div class="settings-header">
+      <span class="settings-title">SETTINGS</span>
+      <button class="btn-edit" onclick="openEdit()">EDIT</button>
+    </div>
+    <div class="intervals-display">
+      <div class="interval-item">
+        <div class="lbl">WORK</div>
+        <div class="val" id="dispWork" style="color:var(--work)">30<span>s</span></div>
+      </div>
+      <div class="divider"></div>
+      <div class="interval-item">
+        <div class="lbl">REST</div>
+        <div class="val" id="dispRest" style="color:var(--rest)">5<span>s</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="editView" style="display:none;" class="fade-in">
+    <div style="font-size:10px;letter-spacing:0.2em;color:var(--muted);margin-bottom:20px;">EDIT INTERVALS</div>
+
+    <div class="edit-row">
+      <div class="edit-lbl">WORK (s)</div>
+      <div class="edit-controls">
+        <button class="btn-step" onclick="step('work',-5)">−</button>
+        <input class="input-val" id="inputWork" type="number" value="30" min="5" max="300"
+          style="color:var(--work);border-color:rgba(249,115,22,0.3);" />
+        <button class="btn-step" onclick="step('work',5)">＋</button>
+      </div>
+    </div>
+
+    <div class="edit-row">
+      <div class="edit-lbl">REST (s)</div>
+      <div class="edit-controls">
+        <button class="btn-step" onclick="step('rest',-5)">−</button>
+        <input class="input-val" id="inputRest" type="number" value="5" min="1" max="60"
+          style="color:var(--rest);border-color:rgba(34,211,238,0.3);" />
+        <button class="btn-step" onclick="step('rest',5)">＋</button>
+      </div>
+    </div>
+
+    <div class="edit-actions">
+      <button class="btn-save" onclick="saveSettings()">SAVE</button>
+      <button class="btn-cancel" onclick="closeEdit()">CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<div class="footer-note">🔔 BUZZER AT SWITCH · 3–2–1 COUNTDOWN TICKS</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────
+let workTime = 30, restTime = 5;
+let phase = 'work'; // 'work' | 'rest'
+let timeLeft = workTime;
+let running = false;
+let round = 1;
+let intervalId = null;
+let tickedSet = new Set();
+
+// ── Audio ──────────────────────────────────────────────────────────────
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function beep(freq, duration, gain = 0.35, type = 'sine') {
+  const ac = getAudioCtx();
+  const osc = ac.createOscillator();
+  const g = ac.createGain();
+  osc.connect(g); g.connect(ac.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, ac.currentTime);
+  g.gain.setValueAtTime(gain, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+  osc.start(ac.currentTime);
+  osc.stop(ac.currentTime + duration);
+}
+
+function playBuzzer() {
+  [0, 0.22].forEach(offset => {
+    const ac = getAudioCtx();
+    const osc = ac.createOscillator();
+    const g = ac.createGain();
+    osc.connect(g); g.connect(ac.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(880, ac.currentTime + offset);
+    g.gain.setValueAtTime(0.25, ac.currentTime + offset);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + offset + 0.18);
+    osc.start(ac.currentTime + offset);
+    osc.stop(ac.currentTime + offset + 0.22);
+  });
+}
+
+function playTick() {
+  beep(660, 0.1, 0.25, 'sine');
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────
+const CIRCUMFERENCE = 2 * Math.PI * 120; // 753.98
+
+function updateUI() {
+  const color = phase === 'work' ? 'var(--work)' : 'var(--rest)';
+  const totalTime = phase === 'work' ? workTime : restTime;
+  const progress = timeLeft / totalTime;
+  const isCountdown = timeLeft <= 3 && timeLeft > 0 && running;
+
+  // Round
+  document.getElementById('roundLabel').textContent = `ROUND ${String(round).padStart(2,'0')}`;
+
+  // Ring
+  const ring = document.getElementById('progressRing');
+  ring.style.stroke = color;
+  ring.style.strokeDashoffset = CIRCUMFERENCE * (1 - progress);
+
+  // Inner bg
+  const inner = document.getElementById('ringInner');
+  inner.style.background = phase === 'work' ? 'rgba(249,115,22,0.07)' : 'rgba(34,211,238,0.07)';
+
+  // Phase label
+  const lbl = document.getElementById('phaseLabel');
+  lbl.textContent = phase === 'work' ? '▶ WORK' : '◼ REST';
+  lbl.style.color = color;
+
+  // Time
+  const mins = String(Math.floor(timeLeft / 60)).padStart(2,'0');
+  const secs = String(timeLeft % 60).padStart(2,'0');
+  const td = document.getElementById('timeDisplay');
+  td.textContent = `${mins}:${secs}`;
+  td.style.color = isCountdown ? color : 'var(--text)';
+  td.className = 'time-display' + (isCountdown ? ' pulsing' : '');
+
+  // Get ready
+  const gr = document.getElementById('getReady');
+  gr.style.color = color;
+  gr.className = 'get-ready' + (isCountdown ? ' visible' : '');
+
+  // Start/pause btn
+  const btn = document.getElementById('startBtn');
+  if (running) {
+    btn.textContent = 'PAUSE';
+    btn.className = `btn btn-pause`;
+    btn.style.borderColor = color;
+    btn.style.color = color;
+    btn.style.background = 'transparent';
+  } else {
+    btn.textContent = 'START';
+    btn.className = `btn btn-primary${phase === 'rest' ? ' rest-phase' : ''}`;
+    btn.style.removeProperty('border-color');
+    btn.style.removeProperty('color');
+    btn.style.removeProperty('background');
+  }
+}
+
+// ── Timer logic ────────────────────────────────────────────────────────
+function tick() {
+  timeLeft--;
+
+  // Countdown ticks
+  if (timeLeft <= 3 && timeLeft > 0) {
+    const key = `${phase}-${timeLeft}`;
+    if (!tickedSet.has(key)) {
+      tickedSet.add(key);
+      playTick();
+    }
+  }
+
+  if (timeLeft <= 0) {
+    playBuzzer();
+    tickedSet = new Set();
+    // Switch phase
+    if (phase === 'work') {
+      phase = 'rest';
+      timeLeft = restTime;
+    } else {
+      phase = 'work';
+      timeLeft = workTime;
+      round++;
+    }
+  }
+
+  updateUI();
+}
+
+function toggleStart() {
+  // Unlock audio on first interaction
+  getAudioCtx();
+
+  if (running) {
+    running = false;
+    clearInterval(intervalId);
+  } else {
+    running = true;
+    intervalId = setInterval(tick, 1000);
+  }
+  updateUI();
+}
+
+function resetTimer() {
+  running = false;
+  clearInterval(intervalId);
+  phase = 'work';
+  timeLeft = workTime;
+  round = 1;
+  tickedSet = new Set();
+  updateUI();
+}
+
+// ── Settings ───────────────────────────────────────────────────────────
+function openEdit() {
+  document.getElementById('inputWork').value = workTime;
+  document.getElementById('inputRest').value = restTime;
+  document.getElementById('settingsView').style.display = 'none';
+  const ev = document.getElementById('editView');
+  ev.style.display = 'block';
+  ev.className = 'fade-in';
+}
+function closeEdit() {
+  document.getElementById('editView').style.display = 'none';
+  document.getElementById('settingsView').style.display = 'block';
+}
+function step(which, delta) {
+  const el = document.getElementById(which === 'work' ? 'inputWork' : 'inputRest');
+  const min = which === 'work' ? 5 : 1;
+  const max = which === 'work' ? 300 : 60;
+  el.value = Math.max(min, Math.min(max, parseInt(el.value || 0) + delta));
+}
+function saveSettings() {
+  const w = Math.max(5, Math.min(300, parseInt(document.getElementById('inputWork').value) || 30));
+  const r = Math.max(1, Math.min(60,  parseInt(document.getElementById('inputRest').value) || 5));
+  workTime = w; restTime = r;
+  document.getElementById('dispWork').innerHTML = `${w}<span>s</span>`;
+  document.getElementById('dispRest').innerHTML = `${r}<span>s</span>`;
+  closeEdit();
+  resetTimer();
+}
+
+// ── Init ───────────────────────────────────────────────────────────────
+updateUI();
+</script>
+</body>
+</html>
