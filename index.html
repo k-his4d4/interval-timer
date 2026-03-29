@@ -304,18 +304,16 @@ function beep(freq, duration, gain = 0.35, type = 'sine') {
 }
 
 function playBuzzer() {
-  [0, 0.22].forEach(offset => {
-    const ac = getAudioCtx();
-    const osc = ac.createOscillator();
-    const g = ac.createGain();
-    osc.connect(g); g.connect(ac.destination);
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(880, ac.currentTime + offset);
-    g.gain.setValueAtTime(0.25, ac.currentTime + offset);
-    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + offset + 0.18);
-    osc.start(ac.currentTime + offset);
-    osc.stop(ac.currentTime + offset + 0.22);
-  });
+  const ac = getAudioCtx();
+  const osc = ac.createOscillator();
+  const g = ac.createGain();
+  osc.connect(g); g.connect(ac.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(880, ac.currentTime);
+  g.gain.setValueAtTime(0.4, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 1); // 長めに余韻
+  osc.start(ac.currentTime);
+  osc.stop(ac.currentTime + 0.65);
 }
 
 function playTick() {
